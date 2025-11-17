@@ -176,7 +176,8 @@ def plot_xt_comparison_for_player(
 
     # Ensure we have rows for all bins 1..70
     all_bins = pd.DataFrame({"pitch_bin": range(1, 71)})  # 10 x 7 grid = 70
-    playertest = pd.merge(all_bins, playertest, on("pitch_bin"), how="left")
+    # ⬇️ FIXED LINE HERE
+    playertest = pd.merge(all_bins, playertest, on="pitch_bin", how="left")
 
     # Fill missing playerName and xT_value_compared
     first_name = playername
@@ -185,7 +186,6 @@ def plot_xt_comparison_for_player(
 
     playertest["playerName"] = playertest["playerName"].fillna(first_name)
     playertest["xT_value_compared"] = playertest["xT_value_compared"].fillna(0)
-
     # Colour map: red (worse) -> white (average) -> green (better)
     colors = ["#d7191c", "#ffffff", "#1a9641"]
     cmap = mcolors.LinearSegmentedColormap.from_list(
