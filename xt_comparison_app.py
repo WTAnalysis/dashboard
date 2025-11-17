@@ -1,4 +1,5 @@
 import io
+from io import BytesIO
 import requests
 
 import streamlit as st
@@ -7,31 +8,19 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 from mplsoccer import VerticalPitch
-from io import BytesIO
 
-def fig_to_png_bytes(fig):
-    buf = BytesIO()
-    fig.savefig(buf, format="png", dpi=150, bbox_inches="tight")
-    buf.seek(0)
-    return buf
 # -----------------------------------------------------------------------------
 # PAGE CONFIG
 # -----------------------------------------------------------------------------
 st.set_page_config(page_title="xT Comparison Pitch Map", layout="wide")
 
 # -----------------------------------------------------------------------------
-# CONSTANTS / CONFIG
+# REPO CONFIG – tweak these if layout changes
 # -----------------------------------------------------------------------------
-# GitHub Parquet (ENG1_2526.parquet)
-MATCH_PARQUET_URL = (
-    "https://github.com/WTAnalysis/dashboard/raw/main/ENG1_2526.parquet"
-)
-
-# GitHub Excel (ENG1_2526_playerstats_by_position_group.xlsx)
-MINUTE_LOG_XLSX_URL = (
-    "https://github.com/WTAnalysis/dashboard/raw/main/"
-    "ENG1_2526_playerstats_by_position_group.xlsx"
-)
+REPO_OWNER = "WTAnalysis"
+REPO_NAME = "dashboard"
+BRANCH = "main"
+DATA_DIR = ""  # e.g. "data" if your files are in /data
 
 PitchColor = "#f5f6fc"
 BackgroundColor = "#381d54"
@@ -39,13 +28,82 @@ PitchLineColor = "Black"
 
 
 # -----------------------------------------------------------------------------
+# HELPERS
+# -----------------------------------------------------------------------------
+def build_raw_url(filename: str) -> str:
+    """Build raw GitHub URL for a given file in the repo."""
+    # Normalise DATA_DIR to '' or 'dir/'
+    prefix = "" if DATA_DIR == "" else (DATA_DIR.rstrip("/") + "/")
+    return f"https://github.com/{REPO_OWNER}/{REPO_NAME}/raw/{BRANCH}/{prefix}{filename}"
+
+
+def fig_to_png_bytes(fig):
+    """Convert a Matplotlib figure to PNG bytes for stable sizing in Streamlit."""
+    buf = BytesIO()
+    fig.savefig(buf, format="png", dpi=150, bbox_inches="tight")
+    buf.seek(0)
+    return buf
+
+
+# -----------------------------------------------------------------------------
 # DATA LOADERS (CACHED)
 # -----------------------------------------------------------------------------
 @st.cache_data
-def load_match_data() -> pd.DataFrame:
-    """Load ENG1_2526.parquet from GitHub."""
+def list_repo_files():
+    """List all files in DATA_DIR on the given branch."""
+    api_path = DATA_DIR.rstrip("/") if DATA_DIR != "" else ""
+    api_url = (
+        f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/"
+        f"{api_path}?ref={BRANCH}"
+    )
+    resp = requests.get(api_url)
+    resp.raise_for_status()
+    return resp.json()
+
+
+@st.cache_data
+def list_parquet_files():
+    """Return sorted list of .parquet files in the repo/path."""
     try:
-        resp = requests.get(MATCH_PARQUET_URL)
+        items = list_repo_files()
+    except Exception as e:
+        st.error(f"Error listing files from GitHub: {e}")
+        return []
+
+    parquet_files = [
+        item["name"]
+        for item in items
+        if item.get("type") == "file"
+        and item.get("name", "").lower().endswith(".parquet")
+    ]
+    return sorted(parquet_files)
+
+
+@st.cache_data
+def list_excel_files():
+    """Return sorted list of Excel files for minute logs in the repo/path."""
+    try:
+        items = list_repo_files()
+    except Exception as e:
+        st.error(f"Error listing files from GitHub: {e}")
+        return []
+
+    excel_files = [
+        item["name"]
+        for item in items
+        if item.get("type") == "file"
+        and item.get("name", "").lower().endswith((".xlsx", ".xls"))
+        and "playerstats_by_position_group" in item.get("name", "").lower()
+    ]
+    return sorted(excel_files)
+
+
+@st.cache_data
+def load_match_data(parquet_filename: str) -> pd.DataFrame:
+    """Load a selected parquet file from GitHub."""
+    raw_url = build_raw_url(parquet_filename)
+    try:
+        resp = requests.get(raw_url)
         resp.raise_for_status()
     except Exception as e:
         st.error(f"Error fetching match Parquet from GitHub: {e}")
@@ -54,22 +112,23 @@ def load_match_data() -> pd.DataFrame:
     try:
         df = pd.read_parquet(io.BytesIO(resp.content))
     except Exception as e:
-        st.error(f"Failed to parse match Parquet file: {e}")
+        st.error(f"Failed to parse match Parquet file '{parquet_filename}': {e}")
         return pd.DataFrame()
 
     return df
 
 
 @st.cache_data
-def load_minute_log() -> pd.DataFrame:
-    """Load ENG1_2526_playerstats_by_position_group.xlsx from GitHub."""
+def load_minute_log(excel_filename: str) -> pd.DataFrame:
+    """Load selected minute log Excel from GitHub."""
+    url = build_raw_url(excel_filename)
     try:
-        resp = requests.get(MINUTE_LOG_XLSX_URL)
+        resp = requests.get(url)
         resp.raise_for_status()
         xlsx_bytes = io.BytesIO(resp.content)
         df = pd.read_excel(xlsx_bytes, usecols=["player_name", "minutes_played"])
     except Exception as e:
-        st.error(f"Error loading minute log Excel from GitHub: {e}")
+        st.error(f"Error loading minute log Excel '{excel_filename}' from GitHub: {e}")
         return pd.DataFrame()
     return df
 
@@ -89,10 +148,13 @@ def plot_xt_comparison_for_player(
     # Filter by user-defined position
     # -------------------------------------------------------------------------
     positiondata = matchdata.loc[matchdata["playing_position"] == position].copy()
+
+    # Drop throw-ins if column exists
     if "throwin" in positiondata.columns:
         positiondata = positiondata.loc[positiondata["throwin"] != 1]
+
     if positiondata.empty:
-        st.error(f"No data found for position '{position}'.")
+        st.error(f"No data found for position '{position}' after filtering.")
         return None
 
     # --- DEBUG: show a subsection of the position data ---
@@ -106,6 +168,7 @@ def plot_xt_comparison_for_player(
                 "x",
                 "y",
                 "xT_value",
+                "throwin",
             ]
             if col in positiondata.columns
         ]
@@ -225,7 +288,8 @@ def plot_xt_comparison_for_player(
         pitch_color=PitchColor,
         line_color=PitchLineColor,
     )
-    fig, ax = pitch.draw(figsize=(4.5, 7.5))  # same aspect as your Python version
+    fig, ax = pitch.draw(figsize=(3.8, 6))  # compact but tall
+
     fig.set_facecolor(BackgroundColor)
 
     # Draw rectangles per bin
@@ -267,23 +331,47 @@ def plot_xt_comparison_for_player(
 # -----------------------------------------------------------------------------
 def main():
     st.title("xT Comparison Pitch Map")
-    st.subheader("ENG1 25/26 Season")
+    st.subheader("ENG1 25/26 Season (or any selected)")
+
+    # -------------------------------------------------------------------------
+    # File dropdowns
+    # -------------------------------------------------------------------------
+    parquet_files = list_parquet_files()
+    excel_files = list_excel_files()
+
+    if not parquet_files:
+        st.error("No parquet files found in the repository/path.")
+        return
+    if not excel_files:
+        st.error("No matching Excel minute-log files found in the repository/path.")
+        return
+
+    st.sidebar.header("Data Sources")
+    parquet_choice = st.sidebar.selectbox(
+        "Match data parquet",
+        parquet_files,
+        index=0,
+    )
+    excel_choice = st.sidebar.selectbox(
+        "Minutes Excel",
+        excel_files,
+        index=0,
+    )
 
     # -------------------------------------------------------------------------
     # Load data
     # -------------------------------------------------------------------------
     with st.spinner("Loading match and minute data..."):
-        matchdata = load_match_data()
-        minute_log = load_minute_log()
+        matchdata = load_match_data(parquet_choice)
+        minute_log = load_minute_log(excel_choice)
 
     if matchdata.empty or minute_log.empty:
         st.warning("Data could not be loaded. Please check the data sources.")
         return
 
     # -------------------------------------------------------------------------
-    # Normalise dtypes so Streamlit & local Python behave the same
+    # Normalise dtypes
     # -------------------------------------------------------------------------
-    # Force numeric on key columns
     for col in ["x", "y", "xT_value"]:
         if col in matchdata.columns:
             matchdata[col] = pd.to_numeric(matchdata[col], errors="coerce")
@@ -349,8 +437,7 @@ def main():
         st.error(f"No positions found for player {playername}.")
         return
 
-    # Pick first position by default (or prefer LB if present, etc.)
-    preferred_positions = ["LB", "LCB(2)", "RCB(2)", "RB"]  # tweak if you like
+    preferred_positions = ["LB", "LCB(2)", "RCB(2)", "RB"]
     default_position = positions[0]
     for p in preferred_positions:
         if p in positions:
@@ -363,7 +450,6 @@ def main():
         index=positions.index(default_position),
     )
 
-
     # -------------------------------------------------------------------------
     # Generate plot
     # -------------------------------------------------------------------------
@@ -374,13 +460,13 @@ def main():
             position=position,
             playername=playername,
         )
-    
+
         if fig is not None:
-            # Center the pitch and scale it nicely inside the page
             left, center, right = st.columns([1, 2, 1])
             with center:
                 img_bytes = fig_to_png_bytes(fig)
-                st.image(img_bytes, width=450)   # ⬅️ Try 400–500 for your display
+                # Adjust width to taste (e.g. 420–480)
+                st.image(img_bytes, width=450)
 
 
 if __name__ == "__main__":
