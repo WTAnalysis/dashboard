@@ -307,13 +307,36 @@ def main():
             st.write("minutes_played:", minute_log["minutes_played"].describe())
 
     # -------------------------------------------------------------------------
-    # Sidebar controls
+    # Sidebar controls – PLAYER FIRST, THEN POSITION
     # -------------------------------------------------------------------------
     st.sidebar.header("User Input")
 
-    # Position selector based on data
+    # 1) Player selector from all players in the dataset
+    all_players = (
+        matchdata["playerName"]
+        .dropna()
+        .astype(str)
+        .unique()
+        .tolist()
+    )
+    all_players = sorted(all_players)
+
+    if not all_players:
+        st.error("No players found in match data.")
+        return
+
+    default_player = "N. Williams" if "N. Williams" in all_players else all_players[0]
+    playername = st.sidebar.selectbox(
+        "Select player",
+        all_players,
+        index=all_players.index(default_player),
+    )
+
+    # 2) Positions restricted to the ones THIS player has actually played
+    player_rows = matchdata.loc[matchdata["playerName"] == playername]
+
     positions = (
-        matchdata["playing_position"]
+        player_rows["playing_position"]
         .dropna()
         .astype(str)
         .unique()
@@ -322,37 +345,23 @@ def main():
     positions = sorted(positions)
 
     if not positions:
-        st.error("No positions found in match data.")
+        st.error(f"No positions found for player {playername}.")
         return
 
-    default_position = "LB" if "LB" in positions else positions[0]
+    # Pick first position by default (or prefer LB if present, etc.)
+    preferred_positions = ["LB", "LCB(2)", "RCB(2)", "RB"]  # tweak if you like
+    default_position = positions[0]
+    for p in preferred_positions:
+        if p in positions:
+            default_position = p
+            break
+
     position = st.sidebar.selectbox(
         "Select position",
         positions,
         index=positions.index(default_position),
     )
 
-    # Player selector based on that position
-    positiondata = matchdata.loc[matchdata["playing_position"] == position]
-    players = (
-        positiondata["playerName"]
-        .dropna()
-        .astype(str)
-        .unique()
-        .tolist()
-    )
-    players = sorted(players)
-
-    if not players:
-        st.error(f"No players found for position {position}.")
-        return
-
-    default_player = "N. Williams" if "N. Williams" in players else players[0]
-    playername = st.sidebar.selectbox(
-        "Select player",
-        players,
-        index=players.index(default_player),
-    )
 
     # -------------------------------------------------------------------------
     # Generate plot
