@@ -35,15 +35,40 @@ PitchLineColor = "Black"
 # -----------------------------------------------------------------------------
 @st.cache_data
 def load_match_data() -> pd.DataFrame:
-    """Load ENG1_2526.csv from Google Drive."""
+    """Load ENG1_2526.csv from Google Drive in a robust way."""
     resp = requests.get(MATCH_CSV_URL)
-    resp.raise_for_status()
-    csv_bytes = resp.content
-    csv_str = csv_bytes.decode("utf-8", errors="ignore")
-    df = pd.read_csv(io.StringIO(csv_str))
+    try:
+        resp.raise_for_status()
+    except Exception as e:
+        st.error(f"Error fetching match CSV from Google Drive: {e}")
+        return pd.DataFrame()
+
+    # Check if Google Drive is giving us HTML (e.g. a warning page) instead of the CSV
+    content_type = resp.headers.get("Content-Type", "")
+    text_sample = resp.text[:200].lower()
+
+    if "text/html" in content_type or "<html" in text_sample:
+        st.error(
+            "The Google Drive link appears to be returning an HTML page "
+            "(e.g. a warning or quota page) instead of the raw CSV.\n\n"
+            "Please double-check that the file is shared publicly and that "
+            "the URL is a direct download link."
+        )
+        return pd.DataFrame()
+
+    try:
+        # Let pandas handle the bytes directly; be tolerant of bad lines
+        df = pd.read_csv(
+            io.BytesIO(resp.content),
+            engine="python",          # more tolerant parser
+            on_bad_lines="skip"       # skip malformed rows instead of failing
+            # encoding="utf-8"       # you can uncomment + adjust if needed
+        )
+    except Exception as e:
+        st.error(f"Failed to parse match CSV: {e}")
+        return pd.DataFrame()
+
     return df
-
-
 @st.cache_data
 def load_minute_log() -> pd.DataFrame:
     """Load ENG1_2526_playerstats_by_position_group.xlsx from GitHub."""
