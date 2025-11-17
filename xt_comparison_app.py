@@ -80,6 +80,24 @@ def plot_xt_comparison_for_player(
     # Filter by user-defined position
     positiondata = matchdata.loc[matchdata["playing_position"] == position].copy()
 
+    # 🔍 DEBUG: show a subsection of positiondata
+    if not positiondata.empty:
+        st.markdown("#### Debug: sample of filtered position data (first 50 rows)")
+        debug_cols = [
+            col for col in [
+                "playerName",
+                "playing_position",
+                "typeId",
+                "x",
+                "y",
+                "xT_value"
+            ]
+            if col in positiondata.columns
+        ]
+        st.dataframe(positiondata[debug_cols].head(50))
+    else:
+        st.warning(f"No rows in positiondata for position: {position}")
+
     if positiondata.empty:
         st.error(f"No data found for position '{position}'.")
         return None
@@ -158,7 +176,7 @@ def plot_xt_comparison_for_player(
 
     # Ensure we have rows for all bins 1..70
     all_bins = pd.DataFrame({"pitch_bin": range(1, 71)})  # 10 x 7 grid = 70
-    playertest = pd.merge(all_bins, playertest, on="pitch_bin", how="left")
+    playertest = pd.merge(all_bins, playertest, on("pitch_bin"), how="left")
 
     # Fill missing playerName and xT_value_compared
     first_name = playername
