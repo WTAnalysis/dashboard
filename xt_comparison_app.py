@@ -76,7 +76,7 @@ def load_index_list():
 @st.cache_data
 def list_parquet_files():
     files = load_index_list()
-    return sorted([f for f in files if f.lower().endswith(".parquet")])
+    return sorted([f for f in files if f.endswith(".parquet")])
 
 
 @st.cache_data
@@ -84,7 +84,7 @@ def list_excel_files():
     files = load_index_list()
     return sorted([
         f for f in files
-        if f.lower().endswith((".xlsx", ".xls"))
+        if f.endswith(".xlsx") or f.endswith(".xls")
         and "playerstats_by_position_group" in f.lower()
     ])
 
