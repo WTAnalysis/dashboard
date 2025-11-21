@@ -345,7 +345,7 @@ def plot_xt_comparison_for_player(
         ax.add_patch(rect)
 
     ax.set_title(
-        f"{first_name} | Impact by Pitch Area",
+        f"{first_name} | Impact by Pitch Area as {position}",
         fontsize=14,
         pad=10,
         color="white",
