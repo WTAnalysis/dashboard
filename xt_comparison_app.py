@@ -42,6 +42,39 @@ COMP_MAP = {
     "League of Ireland":    "IRE",
 }
 # -----------------------------------------------------------------------------
+# POSITION NORMALISATION
+# -----------------------------------------------------------------------------
+def normalize_position(pos: str) -> str:
+    """Normalize position strings into standard buckets."""
+    if pos is None:
+        return pos
+    pos = str(pos)
+
+    if pos in ['RWB', 'LWB']:
+        return pos
+    if 'CM(2)' in pos:
+        return 'CM(2)'
+    elif 'CM(3)' in pos:
+        return 'CM(3)'
+    elif 'DM(2)' in pos or 'DM(3)' in pos:
+        return 'DM(23)'
+    elif 'CB(2)' in pos:
+        return 'CB(2)'
+    elif 'CB(3)' in pos:
+        return 'CB(3)'
+    elif 'AM(2)' in pos:
+        return 'AM(2)'
+    elif 'CF(2)' in pos:
+        return 'CF(2)'
+    elif 'LW' in pos or 'LM' in pos:
+        return 'LMW'
+    elif 'RW' in pos or 'RM' in pos:
+        return 'RMW'
+    elif pos in ['DM', 'AM', 'CF', 'LB', 'RB']:
+        return pos
+    else:
+        return pos  # default fallback
+# -----------------------------------------------------------------------------
 # HELPERS
 # -----------------------------------------------------------------------------
 def build_raw_url(filename: str) -> str:
@@ -358,10 +391,14 @@ def main():
     with st.spinner("Loading match and minute data..."):
         matchdata = load_match_data(parquet_choice)
         minute_log = load_minute_log(excel_choice)
-
-    if matchdata.empty or minute_log.empty:
-        st.warning("Data could not be loaded. Please check the data sources.")
-        return
+    # -----------------------------------------
+    # NORMALISE PLAYING POSITION COLUMN
+    # -----------------------------------------
+    if "playing_position" in matchdata.columns:
+        matchdata["playing_position"] = matchdata["playing_position"].apply(normalize_position)
+        if matchdata.empty or minute_log.empty:
+            st.warning("Data could not be loaded. Please check the data sources.")
+            return
 
     for col in ["x", "y", "xT_value"]:
         if col in matchdata.columns:
