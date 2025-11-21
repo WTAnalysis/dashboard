@@ -12,7 +12,7 @@ from mplsoccer import VerticalPitch
 # -----------------------------------------------------------------------------
 # PAGE CONFIG
 # -----------------------------------------------------------------------------
-st.set_page_config(page_title="xT Comparison Pitch Map", layout="wide")
+st.set_page_config(page_title="Player Impact by Position", layout="wide")
 
 # -----------------------------------------------------------------------------
 # REPO CONFIG – tweak these if layout changes
@@ -360,8 +360,8 @@ def plot_xt_comparison_for_player(
 # STREAMLIT APP
 # -----------------------------------------------------------------------------
 def main():
-    st.title("xT Comparison Pitch Map")
-    st.subheader("ENG1 25/26 Season (or any selected)")
+    st.title("Player Impact by Position")
+    st.subheader("Select Season, Competition, Player & Position on the Left")
 
     st.sidebar.header("Data Sources")
     
