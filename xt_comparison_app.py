@@ -46,91 +46,70 @@ def fig_to_png_bytes(fig):
 
 
 # -----------------------------------------------------------------------------
-# DATA LOADERS (CACHED)
+# DATA LOADERS (NO API CALLS)
 # -----------------------------------------------------------------------------
-@st.cache_data
-def list_repo_files():
-    """List all files in DATA_DIR on the given branch."""
-    api_path = DATA_DIR.rstrip("/") if DATA_DIR != "" else ""
-    api_url = (
-        f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/"
-        f"{api_path}?ref={BRANCH}"
-    )
-    resp = requests.get(api_url)
+
+# Helper: fetch a raw file safely
+def fetch_raw_file(url: str) -> bytes:
+    resp = requests.get(url)
     resp.raise_for_status()
-    return resp.json()
+    return resp.content
+
+
+# 1) Provide a simple index list manually OR load it from a text file in the repo.
+#    Here we expect you have a file called "file_index.txt" in your repo root.
+#    It should contain one filename per line.
+INDEX_FILE = "file_index.txt"
+
+@st.cache_data
+def load_index_list():
+    """Load file index listing from raw GitHub (not GitHub API)."""
+    url = build_raw_url(INDEX_FILE)
+    try:
+        content = fetch_raw_file(url).decode("utf-8")
+        return [x.strip() for x in content.splitlines() if x.strip()]
+    except Exception as e:
+        st.error(f"Error loading file index: {e}")
+        return []
 
 
 @st.cache_data
 def list_parquet_files():
-    """Return sorted list of .parquet files in the repo/path."""
-    try:
-        items = list_repo_files()
-    except Exception as e:
-        st.error(f"Error listing files from GitHub: {e}")
-        return []
-
-    parquet_files = [
-        item["name"]
-        for item in items
-        if item.get("type") == "file"
-        and item.get("name", "").lower().endswith(".parquet")
-    ]
-    return sorted(parquet_files)
+    files = load_index_list()
+    return sorted([f for f in files if f.lower().endswith(".parquet")])
 
 
 @st.cache_data
 def list_excel_files():
-    """Return sorted list of Excel files for minute logs in the repo/path."""
-    try:
-        items = list_repo_files()
-    except Exception as e:
-        st.error(f"Error listing files from GitHub: {e}")
-        return []
-
-    excel_files = [
-        item["name"]
-        for item in items
-        if item.get("type") == "file"
-        and item.get("name", "").lower().endswith((".xlsx", ".xls"))
-        and "playerstats_by_position_group" in item.get("name", "").lower()
-    ]
-    return sorted(excel_files)
+    files = load_index_list()
+    return sorted([
+        f for f in files
+        if f.lower().endswith((".xlsx", ".xls"))
+        and "playerstats_by_position_group" in f.lower()
+    ])
 
 
 @st.cache_data
-def load_match_data(parquet_filename: str) -> pd.DataFrame:
-    """Load a selected parquet file from GitHub."""
-    raw_url = build_raw_url(parquet_filename)
+def load_match_data(parquet_filename: str):
+    url = build_raw_url(parquet_filename)
     try:
-        resp = requests.get(raw_url)
-        resp.raise_for_status()
+        df = pd.read_parquet(io.BytesIO(fetch_raw_file(url)))
+        return df
     except Exception as e:
-        st.error(f"Error fetching match Parquet from GitHub: {e}")
+        st.error(f"Error reading parquet file '{parquet_filename}': {e}")
         return pd.DataFrame()
-
-    try:
-        df = pd.read_parquet(io.BytesIO(resp.content))
-    except Exception as e:
-        st.error(f"Failed to parse match Parquet file '{parquet_filename}': {e}")
-        return pd.DataFrame()
-
-    return df
 
 
 @st.cache_data
-def load_minute_log(excel_filename: str) -> pd.DataFrame:
-    """Load selected minute log Excel from GitHub."""
+def load_minute_log(excel_filename: str):
     url = build_raw_url(excel_filename)
     try:
-        resp = requests.get(url)
-        resp.raise_for_status()
-        xlsx_bytes = io.BytesIO(resp.content)
-        df = pd.read_excel(xlsx_bytes, usecols=["player_name", "minutes_played"])
+        df = pd.read_excel(io.BytesIO(fetch_raw_file(url)),
+                           usecols=["player_name", "minutes_played"])
+        return df
     except Exception as e:
-        st.error(f"Error loading minute log Excel '{excel_filename}' from GitHub: {e}")
+        st.error(f"Error reading Excel file '{excel_filename}': {e}")
         return pd.DataFrame()
-    return df
 
 
 # -----------------------------------------------------------------------------
