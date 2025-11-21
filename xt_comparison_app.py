@@ -438,7 +438,7 @@ def main():
         st.error("No players found in match data.")
         return
 
-    default_player = "N. Williams" if "N. Williams" in all_players else all_players[0]
+    default_player = "" if "N. Williams" in all_players else all_players[0]
     playername = st.sidebar.selectbox(
         "Select player",
         all_players,
