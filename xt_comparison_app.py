@@ -307,7 +307,7 @@ def plot_xt_comparison_for_player(
         ]].copy().sort_values("pitch_bin")
     #    st.dataframe(debug_df, use_container_width=True)
     with st.expander("Debug: xT_value_compared distribution", expanded=False):
-    #    st.write(playertest["xT_value_compared"].describe())
+        st.write(playertest["xT_value_compared"].describe())
 
     colors = ["#d7191c", "#ffffff", "#1a9641"]
     cmap = mcolors.LinearSegmentedColormap.from_list(
@@ -417,11 +417,11 @@ def main():
             .sum()
         )
 
-    with st.sidebar.expander("Debug: global ranges", expanded=False):
-        if "xT_value" in matchdata.columns:
-            st.write("xT_value:", matchdata["xT_value"].describe())
-        if "minutes_played" in minute_log.columns:
-            st.write("minutes_played:", minute_log["minutes_played"].describe())
+    #with st.sidebar.expander("Debug: global ranges", expanded=False):
+     #   if "xT_value" in matchdata.columns:
+     #       st.write("xT_value:", matchdata["xT_value"].describe())
+     #   if "minutes_played" in minute_log.columns:
+     #       st.write("minutes_played:", minute_log["minutes_played"].describe())
 
     st.sidebar.header("User Input")
 
