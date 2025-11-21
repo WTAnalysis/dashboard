@@ -473,13 +473,13 @@ def main():
     )
 
     if st.sidebar.button("Generate Pitch Map"):
-    fig = plot_xt_comparison_for_player(
-        matchdata=matchdata,
-        minute_log=minute_log,
-        position=position,
-        playername=playername,
-        season=season_choice,   # <-- passes readable label like "2025/26"
-    )
+        fig = plot_xt_comparison_for_player(
+            matchdata=matchdata,
+            minute_log=minute_log,
+            position=position,
+            playername=playername,
+            season=season_choice,   # <-- passes readable label like "2025/26"
+        )
 
         if fig is not None:
             left, center, right = st.columns([1, 2, 1])
