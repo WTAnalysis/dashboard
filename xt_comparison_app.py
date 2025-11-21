@@ -385,10 +385,10 @@ def main():
     parquet_choice = f"{league_prefix}1_{season_fragment}.parquet"
     excel_choice   = f"{league_prefix}1_{season_fragment}_playerstats_by_position_group.xlsx"
     
-    st.sidebar.markdown(f"""
-    **Match data file:** `{parquet_choice}`  
-    **Minutes file:** `{excel_choice}`
-    """)
+    #st.sidebar.markdown(f"""
+    #**Match data file:** `{parquet_choice}`  
+    #**Minutes file:** `{excel_choice}`
+    #""")
 
     with st.spinner("Loading match and minute data..."):
         matchdata = load_match_data(parquet_choice)
