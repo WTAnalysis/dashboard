@@ -215,32 +215,32 @@ def plot_xt_comparison_for_player(
 
     positiondata["pitch_bin"] = (x_bin - 1) * y_bins + y_bin
 # --- DEBUG: Show all events for this player in bin 64 ---
-    with st.expander("Debug: Events for player in bin 64", expanded=False):
-    
-        # Filter only this player's events AND the selected position
-        player_events = positiondata[
-            (positiondata["playerName"] == playername) &
-            (positiondata["pitch_bin"] == 64)
-        ]
-    
-        if player_events.empty:
-            st.write(f"No events found for {playername} in bin 64.")
-        else:
-            st.write(f"Total events for {playername} in bin 64: {len(player_events)}")
-            st.dataframe(
-                player_events[
-                    [
-                        "playerName",
-                        "playing_position",
-                        "typeId",
-                        "x",
-                        "y",
-                        "xT_value",
-                        "pitch_bin"
-                    ]
-                ],
-                use_container_width=True,
-            )
+#    with st.expander("Debug: Events for player in bin 64", expanded=False):
+#    
+#        # Filter only this player's events AND the selected position
+#        player_events = positiondata[
+#            (positiondata["playerName"] == playername) &
+#            (positiondata["pitch_bin"] == 64)
+#        ]
+#    
+#        if player_events.empty:
+#            st.write(f"No events found for {playername} in bin 64.")
+#        else:
+#            st.write(f"Total events for {playername} in bin 64: {len(player_events)}")
+#            st.dataframe(
+#                player_events[
+#                    [
+#                        "playerName",
+#                        "playing_position",
+#                        "typeId",
+#                        "x",
+#                        "y",
+#                        "xT_value",
+#                        "pitch_bin"
+#                    ]
+#                ],
+#                use_container_width=True,
+#            )
     drop_types = ["Player off", "Player on", "Corner Awarded", "Card"]
     if "typeId" in positiondata.columns:
         positiondata = positiondata.loc[~positiondata["typeId"].isin(drop_types)]
@@ -307,7 +307,7 @@ def plot_xt_comparison_for_player(
         ]].copy().sort_values("pitch_bin")
     #    st.dataframe(debug_df, use_container_width=True)
     with st.expander("Debug: xT_value_compared distribution", expanded=False):
-        st.write(playertest["xT_value_compared"].describe())
+    #    st.write(playertest["xT_value_compared"].describe())
 
     colors = ["#d7191c", "#ffffff", "#1a9641"]
     cmap = mcolors.LinearSegmentedColormap.from_list(
